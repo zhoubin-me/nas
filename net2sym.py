@@ -93,7 +93,6 @@ def get_block_symbol(x, inp = None, channels=32, reduce=False):
 
 
 def build_residual_cifar(x, N=4, num_classes=10, bn_mom=0.9):
-    print(x)
     data = mx.sym.Variable('data')
     filter_list = [32, 64, 128]
     data = Conv(data, num_filter=filter_list[0], kernel=(3, 3), pad=(1, 1))

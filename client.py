@@ -1,75 +1,92 @@
 from twisted.internet import reactor, protocol
-import libs.grammar.q_protocol as q_protocol
-import time
+import q_protocol
 import socket
 import argparse
-import os
-import shutil
+import numpy as np
+import time
+from net2sym import build_residual_cifar
 
-import pandas as pd
-
-
-
+from run_mxnet_cmd import run_mxnet_from_snapshot, run_mxnet_return_accuracy
 
 
-
-class QClient(protocol.Protocol):
+class RLClient(protocol.Protocol):
     """Once connected, send a message, then print the result."""
 
     def connectionMade(self):
-        self.transport.write(q_protocol.construct_login_message(self.factory.clientname))
+        msg = q_protocol.construct_login_message(self.factory.clientname)
+        self.transport.write(msg)
 
     def dataReceived(self, data):
         out = q_protocol.parse_message(data)
-        if out['type'] == 'redundant_connection':
+        print(out)
+        if out['type'] == 'login':
             print('Redundancy in connect name')
 
         if out['type'] == 'new_net':
-            print('Ready to train ' + out['net_string'])
+            print('Ready to train %s:\n %s' % (out['net_num'], out['net_string']))
+
+            accuracy = np.random.rand()
+            net = eval(out['net_string'])
+
+            sym = build_residual_cifar(net)
+            sym_file = 'logs/sym_%s.json' % out['net_num']
+            log_file = 'logs/log_%s.log' % out['net_num']
+            model_dir = 'logs/snap_%s' % out['net_num']
+            sym.save(sym_file)
+
+            train_acc, test_acc = run_mxnet_return_accuracy(sym_file, log_file, model_dir, 0.001, 0)
+            print(train_acc)
+            print(test_acc)
+            accuracy = np.random.rand()
+            print('----------------------')
+            print(net)
+            msg = q_protocol.construct_net_trained_message(
+                self.factory.clientname,
+                out['net_string'],
+                out['net_num'],
+                accuracy
+            )
+            self.transport.write(msg)
+
+        if out['type'] == 'wait':
+            print('I am also waiting!!!!')
+            time.sleep(10)
+            msg = q_protocol.construct_wait_message(self.factory.clientname)
+            self.transport.write(msg)
 
     def connectionLost(self, reason):
         print("connection lost")
 
 
-class QFactory(protocol.ClientFactory):
-    def __init__(self, clientname, hyper_parameters, state_space_parameters, gpu_to_use, debug):
-        self.hyper_parameters = hyper_parameters
-        self.state_space_parameters = state_space_parameters
-        self.protocol = QClient
+class RLFactory(protocol.ClientFactory):
+    def __init__(self, clientname):
+        self.protocol = RLClient
         self.clientname = clientname
-        self.gpu_to_use = gpu_to_use
-        self.debug = debug
 
     def clientConnectionFailed(self, connector, reason):
-        print
-        "Connection failed - goodbye!"
+        print("Connection failed - goodbye!")
         reactor.stop()
 
     def clientConnectionLost(self, connector, reason):
-        print
-        "Connection lost - goodbye!"
+        print("Connection lost - goodbye!")
         reactor.stop()
 
 
-
+def start_reactor(hostname, clientname):
+    f = RLFactory(clientname)
+    reactor.connectTCP(hostname, 8000, f)
+    reactor.run()
 
 
 # this connects the protocol to a server running on port 8000
 def main():
     parser = argparse.ArgumentParser()
-
-    parser.add_argument('clientname')
     parser.add_argument('hostname')
-    parser.add_argument('-gpu', '--gpu_to_use', help="GPU number to use", type=int)
-    parser.add_argument('--debug', type=bool, help="True if you don't want to actually run networks and return bs",
-                        default=False)
-
+    parser.add_argument('gpu')
     args = parser.parse_args()
 
-    f = QFactory(args.clientname)
-    reactor.connectTCP(args.hostname, 8000, f)
-    reactor.run()
-
+    client_name = socket.gethostname() + '_' + str(args.gpu)
+    start_reactor(args.hostname, client_name)
 
 
 # this only runs if the module was *not* imported
