@@ -37,7 +37,7 @@ class RLClient(protocol.Protocol):
             train_acc, test_acc = run_mxnet_return_accuracy(sym_file, log_file, model_dir, 0.001, self.factory.gpu)
             print(train_acc)
             print(test_acc)
-            accuracy = np.random.rand()
+            accuracy = list(train_acc.values())[-1]
             print('----------------------')
             print(net)
             msg = q_protocol.construct_net_trained_message(
