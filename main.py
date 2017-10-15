@@ -1,8 +1,12 @@
+from policy import NASPolicy
+from net2sym import build_residual_cifar, layer_dict
+
 from collections import OrderedDict
 from functools import reduce
 import socket
 import pickle
 import matplotlib.pyplot as plt
+import os
 
 
 import torch
@@ -14,8 +18,7 @@ from torch.autograd import Variable
 from twisted.internet import reactor, protocol
 from twisted.internet.defer import DeferredLock
 
-from policy import NASPolicy
-from net2sym import build_residual_cifar, layer_dict
+
 import q_protocol
 
 
@@ -88,7 +91,11 @@ class RLServer(protocol.ServerFactory):
             self.network_pool['%02d_%02d' % (self.epoch_count, iter)] = \
                 {'code': network, 'accuracy': None, 'status': 'to_train'}
             net = build_residual_cifar(network)
+            if not os.path.exists('logs/nets'):
+                os.mkdir('logs/nets')
+
             net.save('logs/nets/sym_%02d_%02d.json' % (self.epoch_count, iter))
+
         self.epoch_count += 1
         print('completed generate new nets')
 

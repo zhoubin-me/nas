@@ -67,7 +67,7 @@ def parse_mxnet_log_file(log_file):
 # Run caffe command line and return accuracies.
 def run_mxnet_return_accuracy(symbol_path, log_file, model_dir, lr, gpu):
     save_prefix = model_dir + '/mxsave'
-    run_cmd = 'python train_cifar10.py --gpu %d --fsym %s --num-epochs %d --lr %f ' \
+    run_cmd = 'export MXNET_EXEC_INPLACE_GRAD_SUM_CAP=20;python train_cifar10.py --gpu %d --fsym %s --num-epochs %d --lr %f ' \
               '--model-prefix %s >> %s 2>&1' % (gpu, symbol_path, 1, lr, save_prefix, log_file)
     print("Running [%s]" % run_cmd)
     os.system(run_cmd)
@@ -81,7 +81,7 @@ def run_mxnet_return_accuracy(symbol_path, log_file, model_dir, lr, gpu):
 
 def run_mxnet_from_snapshot(symbol_path, log_file, model_dir, last_epoch, lr, num_epochs, gpu):
     save_prefix = model_dir + '/mxsave'
-    run_cmd = 'python train_cifar10.py --fsym %s --gpu %d --load-epoch %d --lr %f ' \
+    run_cmd = 'export MXNET_EXEC_INPLACE_GRAD_SUM_CAP=20;python train_cifar10.py --fsym %s --gpu %d --load-epoch %d --lr %f ' \
               '--model-prefix %s --num-epochs %d --check 0 >> %s 2>&1' % (symbol_path, gpu, last_epoch+1,
                                                                 lr, save_prefix, num_epochs, log_file)
     print("Running [%s]" % run_cmd)

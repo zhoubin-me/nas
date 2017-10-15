@@ -113,7 +113,7 @@ def build_residual_cifar(x, N=4, num_classes=10, bn_mom=0.9):
     flat = mx.sym.Flatten(data=pool1)
     fc1 = mx.sym.FullyConnected(data=flat, num_hidden=num_classes)
 
-    return mx.sym.SoftmaxOutput(fc1)
+    return mx.sym.SoftmaxOutput(fc1, name='softmax')
 
 
 def build_dpn(x):
@@ -128,7 +128,7 @@ def main():
 
     sym = build_residual_cifar(x)
     mx.viz.print_summary(sym, shape={'data':(1,3,28,28)})
-    graph = mx.viz.plot_network(sym, shape={'data':(1,3,28,28)})
-    graph.view()
+    #graph = mx.viz.plot_network(sym, shape={'data':(1,3,28,28)})
+    #graph.view()
 if __name__ == '__main__':
     main()

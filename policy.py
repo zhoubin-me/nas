@@ -1,13 +1,13 @@
+
 from collections import OrderedDict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-use_cuda = True
 
 from net2sym import layer_dict
-
+use_cuda = True
 
 
 class NASPolicy(nn.Module):

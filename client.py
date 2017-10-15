@@ -34,7 +34,7 @@ class RLClient(protocol.Protocol):
             model_dir = 'logs/snap_%s' % out['net_num']
             sym.save(sym_file)
 
-            train_acc, test_acc = run_mxnet_return_accuracy(sym_file, log_file, model_dir, 0.001, 0)
+            train_acc, test_acc = run_mxnet_return_accuracy(sym_file, log_file, model_dir, 0.001, self.factory.gpu)
             print(train_acc)
             print(test_acc)
             accuracy = np.random.rand()
@@ -59,9 +59,10 @@ class RLClient(protocol.Protocol):
 
 
 class RLFactory(protocol.ClientFactory):
-    def __init__(self, clientname):
+    def __init__(self, clientname, gpu):
         self.protocol = RLClient
         self.clientname = clientname
+        self.gpu = gpu
 
     def clientConnectionFailed(self, connector, reason):
         print("Connection failed - goodbye!")
@@ -72,8 +73,8 @@ class RLFactory(protocol.ClientFactory):
         reactor.stop()
 
 
-def start_reactor(hostname, clientname):
-    f = RLFactory(clientname)
+def start_reactor(hostname, clientname, gpu):
+    f = RLFactory(clientname, gpu)
     reactor.connectTCP(hostname, 8000, f)
     reactor.run()
 
@@ -81,12 +82,12 @@ def start_reactor(hostname, clientname):
 # this connects the protocol to a server running on port 8000
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('hostname')
-    parser.add_argument('gpu')
+    parser.add_argument('hostname', type=str)
+    parser.add_argument('gpu', type=int)
     args = parser.parse_args()
 
     client_name = socket.gethostname() + '_' + str(args.gpu)
-    start_reactor(args.hostname, client_name)
+    start_reactor(args.hostname, client_name, args.gpu)
 
 
 # this only runs if the module was *not* imported
