@@ -9,5 +9,5 @@ tmux new-session -d -s client
 
 for(( i=2; i<=$#; i++ )); do
     tmux new-window -t client:$(($i))
-    tmux send-keys -t client:$(($i)) "python client.py $1 ${!i}" C-m
+    tmux send-keys -t client:$(($i)) "export PATH=/home/i-chenyunpeng/zhoubin/miniconda3/bin:$PATH; python client.py $1 ${!i}" C-m
 done

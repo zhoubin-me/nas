@@ -53,7 +53,7 @@ class RLServer(protocol.ServerFactory):
         self.optimizer = optim.Adam(self.model.parameters(), lr=3e-2)
         self.network_pool = None
 
-        self.batch_size = 2
+        self.batch_size = 64
         self.epochs = 20
         self.ops = 15
 
@@ -130,9 +130,8 @@ class RLServer(protocol.ServerFactory):
         print(self.network_pool)
         with open('logs/net_%02d.pkl' % self.epoch_count, 'wb') as f:
             pickle.dump(self.network_pool, f)
-        if len(self.reward_record) > 0:
-            with open('logs/reward_%02d.pkl' % self.epoch_count, 'wb') as f:
-                pickle.dump(self.reward_record, f)
+        with open('logs/reward_%02d.pkl' % self.epoch_count, 'wb') as f:
+            pickle.dump(self.reward_record, f)
 
 
         rewards_ = [v['accuracy'] for k, v in self.network_pool.items()]
