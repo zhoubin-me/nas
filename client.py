@@ -18,7 +18,6 @@ class RLClient(protocol.Protocol):
 
     def dataReceived(self, data):
         out = q_protocol.parse_message(data)
-        print(out)
         if out['type'] == 'login':
             print('Redundancy in connect name')
 
@@ -34,9 +33,7 @@ class RLClient(protocol.Protocol):
             model_dir = 'logs/snap_%s' % out['net_num']
             sym.save(sym_file)
 
-            #train_acc, test_acc = run_mxnet_return_accuracy(sym_file, log_file, model_dir, 0.001, self.factory.gpu)
-            train_acc = {0:0.5}
-            test_acc = {0:0.5}
+            train_acc, test_acc = run_mxnet_return_accuracy(sym_file, log_file, model_dir, 0.001, self.factory.gpu)
             print(train_acc)
             print(test_acc)
             accuracy = list(train_acc.values())[-1]
@@ -52,7 +49,7 @@ class RLClient(protocol.Protocol):
 
         if out['type'] == 'wait':
             print('I am also waiting!!!!')
-            time.sleep(10)
+            time.sleep(20)
             msg = q_protocol.construct_wait_message(self.factory.clientname)
             self.transport.write(msg)
 

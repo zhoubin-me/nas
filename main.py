@@ -130,12 +130,10 @@ class RLServer(protocol.ServerFactory):
         print(self.network_pool)
         with open('logs/net_%02d.pkl' % self.epoch_count, 'wb') as f:
             pickle.dump(self.network_pool, f)
-        with open('logs/reward_%02d.pkl' % self.epoch_count, 'wb') as f:
-            pickle.dum(self.reward_record, f)
+        if len(self.reward_record) > 0:
+            with open('logs/reward_%02d.pkl' % self.epoch_count, 'wb') as f:
+                pickle.dump(self.reward_record, f)
 
-        if len(self.reward_record) > 2:
-            plt.plot(self.reward_record)
-            plt.savefig('logs/accuracy.png')
 
         rewards_ = [v['accuracy'] for k, v in self.network_pool.items()]
         rewards = reduce(lambda x, y: x + y, rewards_)
@@ -184,7 +182,6 @@ class RLConnection(protocol.Protocol):
         if not completed_experiment:
             out = self.factory.new_net_lock.run(self.factory.sample_one_network).result
             #net_num, net_code = self.factory.new_net_lock.run(self.factory.sample_one_network).result
-            print(out)
             if isinstance(out, tuple) and out[0] != 'wait':
                 net_num, net_code = out
                 print(bcolors.OKBLUE + ('Sending net to %s: %s - %s\n'
