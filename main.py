@@ -8,19 +8,15 @@ import pickle
 import matplotlib.pyplot as plt
 import os
 
-
 import torch
 import torch.optim as optim
 import torch.autograd as autograd
 from torch.autograd import Variable
 
-
 from twisted.internet import reactor, protocol
 from twisted.internet.defer import DeferredLock
 
-
 import q_protocol
-
 
 class bcolors:
     HEADER = '\033[95m'
@@ -57,7 +53,7 @@ class RLServer(protocol.ServerFactory):
         self.optimizer = optim.Adam(self.model.parameters(), lr=3e-2)
         self.network_pool = None
 
-        self.batch_size = 64
+        self.batch_size = 2
         self.epochs = 20
         self.ops = 15
 
@@ -131,8 +127,11 @@ class RLServer(protocol.ServerFactory):
 
     def update_model(self):
 
-        with open('logs/net_%02d.pkl', 'w') as f:
+        print(self.network_pool)
+        with open('logs/net_%02d.pkl' % self.epoch_count, 'wb') as f:
             pickle.dump(self.network_pool, f)
+        with open('logs/reward_%02d.pkl' % self.epoch_count, 'wb') as f:
+            pickle.dum(self.reward_record, f)
 
         if len(self.reward_record) > 2:
             plt.plot(self.reward_record)
@@ -183,9 +182,11 @@ class RLConnection(protocol.Protocol):
         completed_experiment = self.factory.new_net_lock.run(self.factory.check_reached_limit).result
 
         if not completed_experiment:
-            net_num, net_code = self.factory.new_net_lock.run(self.factory.sample_one_network).result
-            print(net_num)
-            if net_num != 'wait':
+            out = self.factory.new_net_lock.run(self.factory.sample_one_network).result
+            #net_num, net_code = self.factory.new_net_lock.run(self.factory.sample_one_network).result
+            print(out)
+            if isinstance(out, tuple) and out[0] != 'wait':
+                net_num, net_code = out
                 print(bcolors.OKBLUE + ('Sending net to %s: %s - %s\n'
                                         % (client_name, net_num, str(net_code))) + bcolors.ENDC)
                 self.factory.clients[client_name] = {'connection': self, 'net': net_num}
@@ -193,7 +194,7 @@ class RLConnection(protocol.Protocol):
                 self.transport.write(
                     q_protocol.construct_new_net_message(socket.gethostname(), str(net_code), str(net_num)))
             else:
-                print(bcolors.YELLOW + 'I am waiting !!!!')
+                print(bcolors.YELLOW + 'Server is waiting !!!!')
                 self.transport.write(
                     q_protocol.construct_wait_message(socket.gethostname()))
         else:
