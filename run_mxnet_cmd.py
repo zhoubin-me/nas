@@ -39,16 +39,19 @@ def parse_line_for_net_output(regex_obj, row, row_dict_list, line, iteration):
 def parse_mxnet_log_file(log_file):
     print("Parsing [%s]" % log_file)
     res = [re.compile('.*Epoch\[(\d+)\] .*Train-accuracy.*=([.\d]+)'),
-           re.compile('.*Epoch\[(\d+)\] Validation-accuracy.*=([.\d]+)')]
+           re.compile('.*Epoch\[(\d+)\] .*Validation-accuracy.*=([.\d]+)'),
+           re.compile('.*Epoch\[(\d+)\] .*Time cost.*=([.\d]+)')]
 
     train_acc_dict = {}
     test_acc_dict = {}
+    time_cost_dict = {}
     with open(log_file) as f:
         lines = f.readlines()
     for l in lines:
         i = 0
         m_train = res[0].match(l)
         m_val = res[1].match(l)
+        m_time = res[2].match(l)
 
         if m_train is not None:
             epoch = int(m_train.groups()[0])
@@ -60,7 +63,12 @@ def parse_mxnet_log_file(log_file):
             acc = float(m_val.groups()[1])
             test_acc_dict[epoch] = acc
 
-    return train_acc_dict, test_acc_dict
+        if m_time is not None:
+            epoch = int(m_time.groups()[0])
+            time = float(m_time.groups()[1])
+            time_cost_dict[epoch] = time
+
+    return train_acc_dict, test_acc_dict, time_cost_dict
 
 
 
@@ -75,9 +83,9 @@ def run_mxnet_return_accuracy(symbol_path, log_file, model_dir, lr, gpu):
     # Get the accuracy values.
     if check_out_of_memory(log_file):
         return None, None
-    train_acc_dict, test_acc_dict = parse_mxnet_log_file(log_file)
+    train_acc_dict, test_acc_dict, time_cost_dict = parse_mxnet_log_file(log_file)
 
-    return train_acc_dict, test_acc_dict
+    return train_acc_dict, test_acc_dict, time_cost_dict
 
 def run_mxnet_from_snapshot(symbol_path, log_file, model_dir, last_epoch, lr, num_epochs, gpu):
     save_prefix = model_dir + '/mxsave'

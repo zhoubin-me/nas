@@ -106,7 +106,7 @@ def add_fit_args(parser):
                        help='1 means test reading speed without training')
     train.add_argument('--dtype', type=str, default='float32',
                        help='precision: float32 or float16')
-    train.add_argument('--check', type=int, default=1,
+    train.add_argument('--check', type=int, default=0,
                        help='whether to do checkpoint save')
     return train
 

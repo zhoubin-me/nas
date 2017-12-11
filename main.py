@@ -54,7 +54,7 @@ class RLServer(protocol.ServerFactory):
         self.network_pool = None
 
         self.batch_size = 64
-        self.epochs = 20
+        self.epochs = 30
         self.ops = 15
 
         self.epoch_count = 0
@@ -88,7 +88,7 @@ class RLServer(protocol.ServerFactory):
                 {'code': network, 'accuracy': None, 'status': 'to_train'}
             net = build_residual_cifar(network)
             if not os.path.exists('logs/nets'):
-                os.mkdir('logs/nets')
+                os.makedirs('logs/nets')
 
             net.save('logs/nets/sym_%02d_%02d.json' % (self.epoch_count, iter))
 
@@ -116,11 +116,12 @@ class RLServer(protocol.ServerFactory):
 
         return k, net_code
 
-    def update_accuracy(self, net_num, net_code, accuracy):
+    def update_accuracy(self, sender, net_num, net_code, accuracy):
         net_code = eval(net_code)
         assert net_code == self.network_pool[net_num]['code']
         self.network_pool[net_num]['accuracy'] = [float(accuracy)] * self.ops
         self.network_pool[net_num]['status'] = 'trained'
+        self.network_pool[net_num]['sender'] = sender
         print('updated net_code:\n %s \n %f' % (str(net_code), float(accuracy)))
 
 
@@ -130,8 +131,6 @@ class RLServer(protocol.ServerFactory):
         print(self.network_pool)
         with open('logs/net_%02d.pkl' % self.epoch_count, 'wb') as f:
             pickle.dump(self.network_pool, f)
-        with open('logs/reward_%02d.pkl' % self.epoch_count, 'wb') as f:
-            pickle.dump(self.reward_record, f)
 
 
         rewards_ = [v['accuracy'] for k, v in self.network_pool.items()]
@@ -139,7 +138,6 @@ class RLServer(protocol.ServerFactory):
 
         # Reinforce
         rewards = torch.Tensor(rewards)
-        self.reward_record.append(rewards.mean())
         print(bcolors.UNDERLINE + str(rewards.mean()) + bcolors.ENDC)
 
         self.reward_record.append(rewards.mean())
@@ -213,7 +211,7 @@ class RLConnection(protocol.Protocol):
                 self.send_new_net(msg['sender'])
 
         elif msg['type'] == 'net_trained':
-            self.factory.new_net_lock.run(self.factory.update_accuracy,
+            self.factory.new_net_lock.run(self.factory.update_accuracy, msg['sender'],
                                           msg['net_num'],
                                           msg['net_string'],
                                           msg['accuracy'])

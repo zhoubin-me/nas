@@ -5,6 +5,7 @@ import argparse
 import numpy as np
 import time
 from net2sym import build_residual_cifar
+import os
 
 from run_mxnet_cmd import run_mxnet_from_snapshot, run_mxnet_return_accuracy
 
@@ -24,19 +25,21 @@ class RLClient(protocol.Protocol):
         if out['type'] == 'new_net':
             print('Ready to train %s:\n %s' % (out['net_num'], out['net_string']))
 
-            accuracy = np.random.rand()
             net = eval(out['net_string'])
 
             sym = build_residual_cifar(net)
             sym_file = 'logs/sym_%s.json' % out['net_num']
             log_file = 'logs/log_%s.log' % out['net_num']
             model_dir = 'logs/snap_%s' % out['net_num']
+            if not os.path.exists('logs'):
+                os.mkdir('logs')
             sym.save(sym_file)
 
-            train_acc, test_acc = run_mxnet_return_accuracy(sym_file, log_file, model_dir, 0.001, self.factory.gpu)
+
+            train_acc, test_acc, time_cost = run_mxnet_return_accuracy(sym_file, log_file, model_dir, 0.001, self.factory.gpu)
             print(train_acc)
             print(test_acc)
-            accuracy = list(train_acc.values())[-1]
+            accuracy = max(list(test_acc.values()))
             print('----------------------')
             print(net)
             msg = q_protocol.construct_net_trained_message(
