@@ -64,8 +64,9 @@ if __name__ == '__main__':
         batch_size     = 128,
         num_epochs     = 300,
         lr             = .05,
-        lr_step_epochs = '200,250',
-        optimizer      = 'adam',
+        lr_factor      = 0.2,
+        lr_step_epochs = '5,10,15',
+        optimizer      = 'sgd',
     )
     args = parser.parse_args()
 

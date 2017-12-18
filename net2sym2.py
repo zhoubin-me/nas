@@ -47,6 +47,7 @@ class NASModel:
         self.code = code # The code for each cell
         self.N = N # Repeat each cell N times
         self.F = F # Start Layer Filters
+        self.lr = 0.1
         self.ops = ('sep3x3', 'sep5x5', 'sep7x7', 'avg3x3', 'max3x3', 'idn')
         self.code = self.transform_code(self.code)
 

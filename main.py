@@ -1,17 +1,10 @@
 from policy3 import NASPolicy
 from net2sym2 import NASModel
-import mxnet as mx
 
 from collections import OrderedDict
-from functools import reduce
 import socket
 import pickle
 import os
-
-import torch
-import torch.optim as optim
-import torch.autograd as autograd
-from torch.autograd import Variable
 
 from twisted.internet import reactor, protocol
 from twisted.internet.defer import DeferredLock
@@ -41,30 +34,33 @@ class RLServer(protocol.ServerFactory):
         self.net_sent_count = 0
         self.net_trained_dict = OrderedDict()
         self.net_trained_count = 0
-
         self.max_step = 10000
+        # num, net = self.sample_one_network()
+        # print(num, net)
+        # self.update_once('xx', '0', str(net), str(0.8888))
+        print('Running NAS Server')
+
 
     def check_reached_limit(self):
-        if self.net_send_count > self.max_step:
+        if self.net_sent_count > self.max_step:
             return True
         else:
             return False
 
     def sample_one_network(self):
         net_code = self.policy.inference_once()
-        net_code = NASModel.transform_code(net_code)
         self.net_sent_dict[self.net_sent_count] = net_code
         self.net_sent_count += 1
-        return self.net_send_count-1, net_code
+        return self.net_sent_count-1, net_code
 
     def update_once(self, sender, net_num, net_code, accuracy):
-        assert eval(net_code) == self.net_sent_dict[net_num]
+        assert eval(net_code) == self.net_sent_dict[int(net_num)]
+        self.net_trained_dict[self.net_trained_count] = OrderedDict()
         self.net_trained_dict[self.net_trained_count]['code'] = eval(net_code)
         self.net_trained_dict[self.net_trained_count]['acc'] = float(accuracy)
         self.net_trained_dict[self.net_trained_count]['sender'] = sender
         self.net_trained_count += 1
-        self.policy.update_once(NASModel.detransform_code(eval(net_code)))
-
+        self.policy.update_once(eval(net_code), float(accuracy))
         print('{}Updated {}th net_code:\n {} \n {} {}'.format(bcolors.OKGREEN, self.net_trained_count,
                                                               net_code, accuracy, bcolors.ENDC))
 
@@ -80,7 +76,7 @@ class RLConnection(protocol.Protocol):
 
     def send_new_net(self, client_name):
         completed_experiment = self.factory.new_net_lock.run(self.factory.check_reached_limit).result
-
+        print(completed_experiment, 'hhahahah')
         if not completed_experiment:
             out = self.factory.new_net_lock.run(self.factory.sample_one_network).result
             if isinstance(out, tuple) and out[0] != 'wait':
