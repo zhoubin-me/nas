@@ -1,134 +1,156 @@
-from collections import OrderedDict
 import mxnet as mx
+import numpy as np
 
-layer_dict = OrderedDict([
-    ('type', ['conv', 'sep', 'max', 'avg', 'idn', 'add', 'concat']),
-    # ('type', ['conv', 'sep', 'max', 'avg', 'idn', 'add', 'concat', 'start', 'end']),
-    ('size', [-1, 1, 3, 5]),
-    # ('depth', [-1, 16, 32, 64, 128, 256]),
-    ('connect1', [-1] + list(range(20))[1:]),
-    ('connect2', [-1] + list(range(20))[1:])
-])
+def SepConv2d(net, channels, dw_kernel, dw_stride, dw_pad):
+    net = mx.sym.Convolution(
+        data=net,
+        num_filter=channels,
+        num_group=channels,
+        kernel=(dw_kernel, dw_kernel),
+        stride=(dw_stride, dw_stride),
+        pad=(dw_pad, dw_pad))
 
-
-def Conv(data, num_filter=1, kernel=(1, 1), stride=(1, 1), pad=(0, 0), num_group=1):
-     conv = mx.sym.Convolution(data=data, num_filter=num_filter, kernel=kernel, num_group=num_group, stride=stride, pad=pad, no_bias=True)
-     bn = mx.sym.BatchNorm(data=conv, fix_gamma=True)
-     act = mx.sym.Activation(data=bn, act_type='relu')
-     return act
-
-
-
-def get_block_symbol(x, inp = None, channels=32, reduce=False):
-
-    if inp is None:
-        data = mx.sym.Variable(name = 'data')
-    else:
-        data = inp
-    endpoint = {1:(data, True)}
-    for idx, layer in enumerate(x):
-        type = layer_dict['type'][layer[0]]
-        size = layer_dict['size'][layer[1]]
-        connect1 = layer_dict['connect1'][layer[2]]
-        connect2 = layer_dict['connect2'][layer[3]]
-        temp = endpoint[connect1][0]
-        endpoint[connect1] = (temp, False)
+    net = mx.sym.Convolution(
+        data=net,
+        num_filter=channels,
+        kernel=(1, 1),
+        stride=(1, 1))
+    return net
 
 
-        if type in ['conv', 'sep']:
-            if size == 1:
-                pad = 0
-            elif size == 3:
-                pad = 1
-            elif size == 5:
-                pad = 2
-            else:
-                raise ValueError
-
-            if type == 'conv':
-                data = Conv(temp, num_filter=channels, kernel=(size, size), pad=(pad, pad))
-            elif type == 'sep':
-                data = Conv(temp, num_filter=channels, kernel=(size, size), pad=(pad, pad), num_group=channels)
-                data = Conv(data, num_filter=channels, kernel=(1, 1), pad=(0, 0))
-            else:
-                raise ValueError
+def Conv2d(net, filters, kernel, stride, pad, num_group=1):
+    net = mx.sym.Activation(data=net, act_type='relu')
+    net = mx.sym.Convolution(
+        data=net,
+        num_filter=filters,
+        kernel=(kernel, kernel),
+        stride=(stride, stride),
+        pad=(pad, pad),
+        num_group=num_group)
+    net = mx.sym.BatchNorm(data=net)
+    return net
 
 
-        elif type in ['max', 'avg']:
-            if size == 3:
-                pad = 1
-            elif size == 5:
-                pad = 2
-            else:
-                raise ValueError
+def SepConvBlock(net, channels, kernel_size, stride, padding):
+    net = mx.sym.Activation(data=net, act_type='relu')
+    net = SepConv2d(net, channels, kernel_size, stride, padding)
+    net = mx.sym.BatchNorm(data=net)
 
-            data = mx.sym.Pooling(data=temp, pool_type=type, kernel=(size, size), pad=(pad, pad), stride=(1, 1))
+    net = mx.sym.Activation(data=net, act_type='relu')
+    net = SepConv2d(net, channels, kernel_size, stride, padding)
+    net = mx.sym.BatchNorm(data=net)
 
-        elif type == 'idn':
-            data == mx.sym.identity(data=temp)
+    return net
 
-        elif type in ['add', 'concat']:
-            temp2 = endpoint[connect2][0]
-            endpoint[connect2] = (temp2, False)
-            if type == 'add':
-                data = temp + temp2
-            elif type == 'concat':
-                data = mx.sym.concat(*[temp, temp2])
-                data = Conv(data, num_filter=channels, kernel=(1, 1), pad=(0, 0))
+class NASModel:
+    def __init__(self, code, N=3, F=24):
+        self.code = code # The code for each cell
+        self.N = N # Repeat each cell N times
+        self.F = F # Start Layer Filters
+        self.lr = 0.1
+        self.ops = ('sep3x3', 'sep5x5', 'sep7x7', 'avg3x3', 'max3x3', 'idn')
+        self.code = self.transform_code(self.code)
 
+    @staticmethod
+    def transform_code(code):
+        if np.ndim(code) == 1:
+            code = np.reshape(code, (-1, 4))
+        if np.ndim(code) == 2:
+            code = [tuple(x) for x in code]
+        if np.ndim(code) > 2:
+            raise ValueError
+        return code
+
+    @staticmethod
+    def detransform_code(code):
+        if np.dim(code) == 2:
+            code = np.reshape(code, (-1,))
+        if np.dim(code) == 1:
+            return code
+        raise ValueError
+
+    def get_ops(self, net, op):
+        op = self.ops[op]
+        if op == 'sep3x3':
+            net = SepConvBlock(net, self.F, 3, 1, 1)
+        elif op == 'sep5x5':
+            net = SepConvBlock(net, self.F, 5, 1, 2)
+        elif op == 'sep7x7':
+            net = SepConvBlock(net, self.F, 7, 1, 3)
+        elif op == 'avg3x3':
+            net = mx.sym.Pooling(net, kernel=(3, 3), stride=(1, 1), pad=(1, 1), pool_type='avg')
+        elif op == 'max3x3':
+            net = mx.sym.Pooling(net, kernel=(3, 3), stride=(1, 1), pad=(1, 1), pool_type='max')
+        elif op == 'idn':
+            net = mx.sym.identity(net)
         else:
             raise ValueError
 
-        endpoint[idx+2] = (data, True)
+        return net
 
-    heads = [v[0] for k, v in endpoint.items() if v[1]]
-    out = mx.sym.concat(*heads)
+    def build_normal_cell(self, left, right, reduce=False, first=False):
+        left = Conv2d(left, self.F, 1, 1, 0)
+        if first:
+            left = mx.sym.Pooling(left, kernel=(3, 3), stride=(2, 2), pad=(1, 1), pool_type='avg')
+        right = Conv2d(right, self.F, 1, 1, 0)
+        connectors = [left, right]
+        connected = [0, 0]
 
-    if reduce:
-        out = Conv(out, num_filter=channels*2, kernel=(3, 3), pad=(1, 1), stride=(2, 2))
-    else:
-        out = Conv(out, num_filter=channels, kernel=(1, 1), pad=(0, 0))
+        for left_connect, right_connect, left_op, right_op in self.code:
+            left_ = self.get_ops(connectors[left_connect], left_op)
+            right_ = self.get_ops(connectors[right_connect], right_op)
+            sum_ = left_ + right_
 
-    return out
+            connected[left_connect] = 1
+            connected[right_connect] = 1
+
+            connectors.append(sum_)
+            connected.append(0)
+
+        end_points = [y for x, y in zip(connected, connectors) if x is 0]
+        net = mx.sym.concat(*end_points)
+        if reduce:
+            net = mx.sym.Pooling(net, kernel=(3, 3), stride=(2, 2), pad=(1, 1), pool_type='avg')
+
+        return net
+
+    def build_cifar_network(self):
+        data = mx.sym.Variable(name='data', shape=(1, 3, 32, 32))
+        net = Conv2d(data, 2*self.F, 3, 1, 1)
+        end_points = [net, net]
+
+        for idx in range(self.N):
+            reduce = (idx+1 == self.N)
+            net = self.build_normal_cell(end_points[-2], end_points[-1], reduce=reduce, first=False)
+            end_points.append(net)
+
+        self.F *= 2
+        for idx in range(self.N):
+            reduce = (idx+1 == self.N)
+            first = (idx == 0)
+            net = self.build_normal_cell(end_points[-2], end_points[-1], reduce=reduce, first=first)
+            end_points.append(net)
+
+        self.F *= 2
+        for idx in range(self.N - 1):
+            first = (idx == 0)
+            reduce = (idx + 1 == self.N)
+            net = self.build_normal_cell(end_points[-2], end_points[-1], reduce=reduce, first=first)
+            end_points.append(net)
+
+        net = mx.sym.Pooling(net, kernel=(3, 3), global_pool=True, pool_type='avg')
+        net = mx.sym.FullyConnected(net, num_hidden=10)
+        net = mx.sym.SoftmaxOutput(net, name='softmax')
+
+        return net
 
 
-def build_residual_cifar(x, N=4, num_classes=10, bn_mom=0.9):
-    data = mx.sym.Variable('data')
-    filter_list = [32, 64, 128]
-    data = Conv(data, num_filter=filter_list[0], kernel=(3, 3), pad=(1, 1))
+# def main():
+#     net_code = [(0, 2, 0, 1), (1, 0, 1, 1), (2, 3, 1, 0),
+#                 (3, 4, 0, 0), (5, 4, 1, 0)]
+#
+#     model = NASModel(net_code, N=3, F=32)
+#     sym = model.build_cifar_network()
 
-    for channels in filter_list:
-        for idx in range(N):
-            data_ = mx.sym.identity(data)
-            if idx == 3 and channels != filter_list[-1]:
-                data = get_block_symbol(x, inp=data, channels=channels, reduce=True)
-                data_ = Conv(data_, num_filter=channels*2, kernel=(3, 3), pad=(1, 1), stride=(2, 2))
-            else:
-                data = get_block_symbol(x, inp=data, channels=channels)
-            data = data + data_
-
-    bn1 = mx.sym.BatchNorm(data=data, fix_gamma=False, eps=2e-5, momentum=bn_mom)
-    relu1 = mx.sym.Activation(data=bn1, act_type='relu')
-    pool1 = mx.sym.Pooling(data=relu1, global_pool=True, kernel=(7, 7), pool_type='avg')
-    flat = mx.sym.Flatten(data=pool1)
-    fc1 = mx.sym.FullyConnected(data=flat, num_hidden=num_classes)
-
-    return mx.sym.SoftmaxOutput(fc1, name='softmax')
-
-
-def build_dpn(x):
-    pass
-
-
-
-
-def main():
-    x = [[0, 3, 1, 0], [0, 3, 1, 0], [1, 3, 1, 0], [2, 3, 2, 0], [1, 2, 2, 0], [2, 3, 5, 0], [6, 0, 4, 3], [0, 2, 8, 0],
-         [4, 0, 5, 0], [2, 2, 5, 0], [0, 2, 3, 0], [5, 0, 1, 10], [2, 2, 12, 0], [4, 0, 6, 0], [6, 0, 7, 12]]
-
-    sym = build_residual_cifar(x)
-    mx.viz.print_summary(sym, shape={'data':(1,3,28,28)})
-    #graph = mx.viz.plot_network(sym, shape={'data':(1,3,28,28)})
-    #graph.view()
-if __name__ == '__main__':
-    main()
+#
+# main()

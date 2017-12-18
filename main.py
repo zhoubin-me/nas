@@ -1,10 +1,9 @@
-from policy3 import NASPolicy
-from net2sym2 import NASModel
+from policy import NASPolicy
 
 from collections import OrderedDict
 import socket
 import pickle
-import os
+import torch
 
 from twisted.internet import reactor, protocol
 from twisted.internet.defer import DeferredLock
@@ -35,9 +34,6 @@ class RLServer(protocol.ServerFactory):
         self.net_trained_dict = OrderedDict()
         self.net_trained_count = 0
         self.max_step = 10000
-        # num, net = self.sample_one_network()
-        # print(num, net)
-        # self.update_once('xx', '0', str(net), str(0.8888))
         print('Running NAS Server')
 
 
@@ -63,6 +59,11 @@ class RLServer(protocol.ServerFactory):
         self.policy.update_once(eval(net_code), float(accuracy))
         print('{}Updated {}th net_code:\n {} \n {} {}'.format(bcolors.OKGREEN, self.net_trained_count,
                                                               net_code, accuracy, bcolors.ENDC))
+
+        if self.net_trained_count % 100 == 0:
+            with open('logs/step_%05d.pkl' % self.net_trained_count, 'wb') as f:
+                pickle.dump(self.net_trained_dict, f)
+            torch.save(self.policy.state_dict(), 'logs/save_%05d.th' % self.net_trained_count)
 
 
 class RLConnection(protocol.Protocol):

@@ -1,5 +1,5 @@
-from policy3 import NASPolicy
-from net2sym2 import NASModel
+from policy import NASPolicy
+from net2sym import NASModel
 import mxnet as mx
 
 def main():

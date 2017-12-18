@@ -6,7 +6,7 @@ import time
 import os
 
 from run_mxnet_cmd import run_mxnet_return_accuracy
-from net2sym2 import NASModel
+from net2sym import NASModel
 
 class RLClient(protocol.Protocol):
     """Once connected, send a message, then print the result."""

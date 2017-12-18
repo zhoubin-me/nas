@@ -1,96 +1,109 @@
 
-from collections import OrderedDict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-
-
-from net2sym import layer_dict
+from torch.distributions import Categorical
+import torch.optim as optim
 use_cuda = True
 
 
 class NASPolicy(nn.Module):
-    def __init__(self, hidden_size):
+    def __init__(self):
         super(NASPolicy, self).__init__()
-        self.hidden_size = hidden_size
+        self.batch_size = 32
+        self.cell_size = 128
+        self.actions_explained = ('start',) + ('left', 'right', 'first', 'second', 'third', 'forth') + \
+                                 ('left', 'right', 'first', 'second', 'third', 'forth') + \
+                                 ('sep3x3', 'sep5x5', 'sep7x7', 'avg3x3', 'max3x3', 'idn') + \
+                                 ('sep3x3', 'sep5x5', 'sep7x7', 'avg3x3', 'max3x3', 'idn')
+        self.action_space = len(self.actions_explained)
+        self.steps = 20
+        self.lr = 0.001
+        self.epsilon = 1.0
+        self.gamma = 0.95
+        self.keys = ['first_conn', 'second_conn', 'first_op', 'second_op']
+        self.input_embedding = {k: nn.Embedding(x, self.cell_size) \
+                                for k, x in zip(['start'] + self.keys, [1, 6, 6, 6, 6])}
+        self.output_fc = {k: nn.Linear(self.cell_size, 6) for k in self.keys}
 
-        self.embeddings = OrderedDict()
-        self.outs = OrderedDict()
-        self.gru = nn.GRU(hidden_size, hidden_size)
-        self.value_head = nn.Linear(hidden_size, 1)
+        self.gru = nn.LSTMCell(self.cell_size, self.cell_size)
+        self.reward_bias = 0.5
+        self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
 
-        for k, v in layer_dict.items():
-            self.embeddings[k] = nn.Embedding(len(v), self.hidden_size)
-            self.outs[k] = nn.Linear(self.hidden_size, len(v))
+    def forward(self, net, reward):
+        hx = Variable(torch.zeros(1, self.cell_size))
+        cx = Variable(torch.zeros(1, self.cell_size))
+        action = Variable(torch.LongTensor([0]))
+        action = self.input_embedding['start'](action)
 
-        self.saved_actions = []
-        self.saved_values = []
+        outputs = []
+        for step in range(self.steps):
+            hx, cx = self.gru(action, (hx, cx))
+            key = self.keys[step % 4]
+            yx = self.output_fc[key](hx)
+            yx = F.softmax(yx, dim=1)
+            outputs.append(yx)
+            action = Variable(torch.LongTensor([net[step]]))
+            action = self.input_embedding[key](action)
 
-    def forward(self, input_dict, hidden=None):
-        if hidden is None:
-            hidden = Variable(torch.zeros(1, 1, self.hidden_size))
+        return outputs
 
-        output_dict = OrderedDict()
-        for k, v in input_dict.items():
-            inp = self.embeddings[k](v)
-            output, hidden = self.gru(inp.view(1, 1, -1), hidden)
-            output_dict[k] = F.softmax(self.outs[k](output).view(1, -1))
-        return output_dict, hidden
+    def update_once(self, net, reward):
+        outputs = self.forward(net, reward)
+        pg_loss = []
 
-    def select_action(self, input_dict, hidden=None, step=0):
-        probs, hidden = self.forward(input_dict, hidden)
-        action = OrderedDict()
-        layer_type = None
-        mask = [1 if i <= step else 0 for i in range(19)]
+        for step in range(self.steps):
+            m = Categorical(outputs[step])
+            action = net[step]
+            action = Variable(torch.LongTensor([action]))
+            loss_s = - m.log_prob(action) * (reward - self.reward_bias)
+            pg_loss.append(loss_s)
 
-        for k, v in probs.items():
-            if k == 'type':
-                action[k] = v.multinomial()
-                layer_type = layer_dict[k][action[k].data[0, 0]]
-                continue
+        self.reward_bias = self.gamma * self.reward_bias + (1 - self.gamma) * reward
 
-            if k == 'connect1':
-                v = v * Variable(torch.FloatTensor([0] + mask))
+        self.optimizer.zero_grad()
+        loss = torch.cat(pg_loss).sum()
+        loss.backward()
+        self.optimizer.step()
+        return loss.data[0]
 
-            if layer_type in ['conv', 'sep']:
-                if k == 'size':
-                    v = v * Variable(torch.FloatTensor([0, 1, 1, 1]))
-                #if k == 'depth':
-                #    v = v * Variable(torch.FloatTensor([0, 1, 1, 1, 1, 1]))
-                if k == 'connect2':
-                    v = v * Variable(torch.FloatTensor([1] + [0] * 19))
-            if layer_type in ['max', 'avg']:
-                if k == 'size':
-                    v = v * Variable(torch.FloatTensor([0, 0, 1, 1]))
-                #if k == 'depth':
-                #    v = v * Variable(torch.FloatTensor([1, 0, 0, 0, 0, 0]))
-                if k == 'connect2':
-                    v = v * Variable(torch.FloatTensor([1] + [0] * 19))
+    def inference_once(self):
+        hx = Variable(torch.zeros(1, self.cell_size))
+        cx = Variable(torch.zeros(1, self.cell_size))
+        action = Variable(torch.LongTensor([0]))
+        action = self.input_embedding['start'](action)
+        net = []
+        for step in range(self.steps):
+            hx, cx = self.gru(action, (hx, cx))
+            key = self.keys[step % 4]
+            yx = self.output_fc[key](hx)
+            yx = F.softmax(yx, dim=1)
+            if key is 'first_conn' or key is 'second_conn':
+                mask = [1, 1] + [1 if x < step // 4 else 0 for x in range(4)]
+                yx *= Variable(torch.FloatTensor(mask))
+            m = Categorical(yx)
+            action = m.sample()
+            net.append(action.data[0])
+            action = self.input_embedding[key](action)
 
-            if layer_type in ['idn']:
-                if k == 'size':
-                    v = v * Variable(torch.FloatTensor([1, 0, 0, 0]))
-                #if k == 'depth':
-                #    v = v * Variable(torch.FloatTensor([1, 0, 0, 0, 0, 0]))
-                if k == 'connect2':
-                    v = v * Variable(torch.FloatTensor([1] + [0] * 19))
-            if layer_type in ['add', 'concat']:
-                if k == 'size':
-                    v = v * Variable(torch.FloatTensor([1, 0, 0, 0]))
-                #if k == 'depth':
-                #    v = v * Variable(torch.FloatTensor([1, 0, 0, 0, 0, 0]))
-                if k == 'connect2':
-                    v = v * Variable(torch.FloatTensor([0] + mask))
-
-            action[k] = v.multinomial()
-
-        self.saved_actions.append(action)
-        return action, hidden
-
-
-
-
-
+        return net
 
 
+
+
+def main():
+    model = NASPolicy()
+    net = model.inference_once()
+    loss = model.update_once(net, 0.83)
+    net_trained_count = 1
+    import pickle
+    net_trained_dict = {'0': 3}
+
+    with open('logs/step_%05d.pkl' % net_trained_count, 'wb') as f:
+        pickle.dump(net_trained_dict, f)
+    torch.save(model.state_dict(), 'logs/save_%05d.th' % net_trained_count)
+    print(loss)
+
+if __name__ == '__main__':
+    main()
