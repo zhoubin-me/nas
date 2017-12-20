@@ -56,6 +56,7 @@ class RLServer(protocol.ServerFactory):
         self.net_trained_dict[self.net_trained_count]['acc'] = float(accuracy)
         self.net_trained_dict[self.net_trained_count]['sender'] = sender
         self.net_trained_count += 1
+        reward = np.exp(float(accuracy)) - 1
         self.policy.update_once(eval(net_code), float(accuracy))
         print('{}Updated {}th net_code:\n {} \n {} {}'.format(bcolors.OKGREEN, self.net_trained_count,
                                                               net_code, accuracy, bcolors.ENDC))

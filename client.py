@@ -38,7 +38,8 @@ class RLClient(protocol.Protocol):
                                                                        model_dir, model.lr, self.factory.gpu)
             print(train_acc)
             print(test_acc)
-            accuracy = max(list(test_acc.values()))
+            acc_list  = list(test_acc.values())
+            accuracy = sum(acc_list) / (len(acc_list) + 1)
             print('----------------------')
             print(net)
             msg = q_protocol.construct_net_trained_message(
