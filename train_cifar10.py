@@ -65,7 +65,7 @@ if __name__ == '__main__':
         num_epochs     = 300,
         lr             = .05,
         lr_factor      = 0.2,
-        lr_step_epochs = '5,10,15',
+        lr_step_epochs = '50, 100',
         optimizer      = 'sgd',
     )
     args = parser.parse_args()

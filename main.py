@@ -77,7 +77,6 @@ class RLConnection(protocol.Protocol):
 
     def send_new_net(self, client_name):
         completed_experiment = self.factory.new_net_lock.run(self.factory.check_reached_limit).result
-        print(completed_experiment, 'hhahahah')
         if not completed_experiment:
             out = self.factory.new_net_lock.run(self.factory.sample_one_network).result
             if isinstance(out, tuple) and out[0] != 'wait':
