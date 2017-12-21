@@ -4,6 +4,7 @@ from collections import OrderedDict
 import socket
 import pickle
 import torch
+import numpy as np
 
 from twisted.internet import reactor, protocol
 from twisted.internet.defer import DeferredLock
@@ -56,10 +57,16 @@ class RLServer(protocol.ServerFactory):
         self.net_trained_dict[self.net_trained_count]['acc'] = float(accuracy)
         self.net_trained_dict[self.net_trained_count]['sender'] = sender
         self.net_trained_count += 1
-        reward = np.exp(float(accuracy)) - 1
-        self.policy.update_once(eval(net_code), float(accuracy))
+
+
         print('{}Updated {}th net_code:\n {} \n {} {}'.format(bcolors.OKGREEN, self.net_trained_count,
                                                               net_code, accuracy, bcolors.ENDC))
+        if self.net_trained_count + 1 % 32 == 0:
+            accs = [v['acc'] for k, v in self.net_trained_dict.items()][-32:]
+            codes = [v['code'] for k, v in self.net_trained_dict.items()][-32:]
+            codes = np.stack(codes, axis=1)
+            self.policy.update_batch(codes, accs)
+            print('{}Updated model:\n {} {}'.format(bcolors.BOLD, self.net_trained_count, bcolors.ENDC))
 
         if self.net_trained_count % 100 == 0:
             with open('logs/step_%05d.pkl' % self.net_trained_count, 'wb') as f:

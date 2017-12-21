@@ -1,11 +1,9 @@
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.distributions import Categorical
 import torch.optim as optim
-use_cuda = True
 
 
 class NASPolicy(nn.Module):
@@ -22,8 +20,10 @@ class NASPolicy(nn.Module):
         self.lr = 0.001
         self.epsilon = 1.0
         self.gamma = 0.95
+        self.entropy_reg = 0.00001
+        self.clip_ratio = 0.2
         self.keys = ['first_conn', 'second_conn', 'first_op', 'second_op']
-        self.input_embedding = {k: nn.Embedding(x, self.cell_size) \
+        self.input_embedding = {k: nn.Embedding(x, self.cell_size)
                                 for k, x in zip(['start'] + self.keys, [1, 6, 6, 6, 6])}
         self.output_fc = {k: nn.Linear(self.cell_size, 6) for k in self.keys}
 
@@ -31,10 +31,10 @@ class NASPolicy(nn.Module):
         self.reward_bias = 0.5
         self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
 
-    def forward(self, net, reward):
-        hx = Variable(torch.zeros(1, self.cell_size))
-        cx = Variable(torch.zeros(1, self.cell_size))
-        action = Variable(torch.LongTensor([0]))
+    def forward(self, net):
+        hx = Variable(torch.zeros(self.batch_size, self.cell_size))
+        cx = Variable(torch.zeros(self.batch_size, self.cell_size))
+        action = Variable(torch.LongTensor([0] * self.batch_size))
         action = self.input_embedding['start'](action)
 
         outputs = []
@@ -44,26 +44,34 @@ class NASPolicy(nn.Module):
             yx = self.output_fc[key](hx)
             yx = F.softmax(yx, dim=1)
             outputs.append(yx)
-            action = Variable(torch.LongTensor([net[step]]))
+            action = Variable(torch.from_numpy(net[step]))
             action = self.input_embedding[key](action)
 
         return outputs
 
-    def update_once(self, net, reward):
-        outputs = self.forward(net, reward)
+    def update_batch(self, net, rewards):
+        outputs = self.forward(net)
         pg_loss = []
 
         for step in range(self.steps):
             m = Categorical(outputs[step])
             action = net[step]
-            action = Variable(torch.LongTensor([action]))
-            loss_s = - m.log_prob(action) * (reward - self.reward_bias)
-            pg_loss.append(loss_s)
+            action = Variable(torch.from_numpy(action))
+            adv = Variable(torch.FloatTensor(rewards)) - self.reward_bias
+            entropy_loss = self.entropy_reg * m.entropy()
+            neglogp = m.log_prob(action)
+            neglogp_old = Variable(neglogp.data)
+            ratio = torch.exp(neglogp - neglogp_old)
+            loss1 = ratio * adv
+            loss2 = torch.clamp(ratio, 1 - self.clip_ratio, 1 + self.clip_ratio) * adv
+            loss_s = torch.min(loss1, loss2) + entropy_loss
+            pg_loss.append(-loss_s)
 
-        self.reward_bias = self.gamma * self.reward_bias + (1 - self.gamma) * reward
+        for reward in rewards:
+            self.reward_bias = self.gamma * self.reward_bias + (1 - self.gamma) * reward
 
         self.optimizer.zero_grad()
-        loss = torch.cat(pg_loss).sum()
+        loss = torch.cat(pg_loss).mean()
         loss.backward()
         self.optimizer.step()
         return loss.data[0]
@@ -93,17 +101,25 @@ class NASPolicy(nn.Module):
 
 
 def main():
+    import numpy as np
     model = NASPolicy()
-    net = model.inference_once()
-    loss = model.update_once(net, 0.83)
-    net_trained_count = 1
-    import pickle
-    net_trained_dict = {'0': 3}
+    nets = []
+    accs = []
+    for _ in range(32):
+        nets.append(model.inference_once())
+        accs.append(np.random.randn())
+    nets = np.stack(nets, axis=1)
 
-    with open('logs/step_%05d.pkl' % net_trained_count, 'wb') as f:
-        pickle.dump(net_trained_dict, f)
-    torch.save(model.state_dict(), 'logs/save_%05d.th' % net_trained_count)
-    print(loss)
+    for _ in range(10000):
+        loss = model.update_batch(nets, accs)
+        print(loss)
+    # net_trained_count = 1
+    # import pickle
+    # net_trained_dict = {'0': 3}
+    #
+    # with open('logs/step_%05d.pkl' % net_trained_count, 'wb') as f:
+    #     pickle.dump(net_trained_dict, f)
+    # torch.save(model.state_dict(), 'logs/save_%05d.th' % net_trained_count)
 
 if __name__ == '__main__':
     main()
