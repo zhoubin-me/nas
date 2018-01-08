@@ -72,7 +72,7 @@ def add_fit_args(parser):
                        help='the neural network to use')
     train.add_argument('--num-layers', type=int,
                        help='number of layers in the neural network, required by some networks such as resnet')
-    train.add_argument('--gpus', type=str,
+    train.add_argument('--gpus', type=str, default='0',
                        help='list of gpus to run, e.g. 0 or 0,2,5. empty means using cpu')
     train.add_argument('--kv-store', type=str, default='device',
                        help='key-value store type')
@@ -122,7 +122,7 @@ def fit(args, network, data_loader, **kwargs):
 
     # logging
     head = '%(asctime)-15s Node[' + str(kv.rank) + '] %(message)s'
-    logging.basicConfig(level=logging.DEBUG, format=head)
+    logging.basicConfig(level=logging.DEBUG, format=head, filename=args.logfile)
     logging.info('start with arguments %s', args)
 
     # data iterators

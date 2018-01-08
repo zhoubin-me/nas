@@ -74,14 +74,12 @@ def parse_mxnet_log_file(log_file):
 
 
 # Run caffe command line and return accuracies.
-def run_mxnet_return_accuracy(symbol_path, log_file, model_dir, lr, gpu, sym):
-    save_prefix = model_dir + '/mxsave'
-    train_cifar10(sym, gpu, 12, lr)
+def run_mxnet_return_accuracy(log_file, lr, gpu, sym):
+    train_cifar10(sym, gpu, lr, log_file)
     # Get the accuracy values.
     if check_out_of_memory(log_file):
         return None, None
     train_acc_dict, test_acc_dict, time_cost_dict = parse_mxnet_log_file(log_file)
-
     return train_acc_dict, test_acc_dict, time_cost_dict
 
 def run_mxnet_from_snapshot(symbol_path, log_file, model_dir, last_epoch, lr, num_epochs, gpu):

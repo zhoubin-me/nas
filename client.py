@@ -29,21 +29,15 @@ class RLClient(protocol.Protocol):
             net = eval(out['net_string'])
             model = NASModel(net)
             sym = model.build_cifar_network()
-            sym_file = 'logs/sym_%s.json' % out['net_num']
             log_file = 'logs/log_%s.log' % out['net_num']
-            model_dir = 'logs/snap_%s' % out['net_num']
-            if not os.path.exists('logs'):
-                os.mkdir('logs')
-            sym.save(sym_file)
-
-            train_acc, test_acc, time_cost = run_mxnet_return_accuracy(sym_file, log_file,
-                                                                       model_dir, model.lr, self.factory.gpu, sym)
-            print(train_acc)
-            print(test_acc)
-            acc_list  = list(test_acc.values())
-            accuracy = sum(acc_list) / (len(acc_list) + 1)
+            #train_acc, test_acc, time_cost = run_mxnet_return_accuracy(log_file, model.lr, self.factory.gpu, sym)
+            #acc_list  = list(test_acc.values())
+            #accuracy = sum(acc_list) / (len(acc_list) + 1)
             print('----------------------')
+            #print(train_acc)
+            #print(test_acc)
             print(net)
+            accuracy = 0.5
             msg = q_protocol.construct_net_trained_message(
                 self.factory.clientname,
                 out['net_string'],
@@ -63,10 +57,11 @@ class RLClient(protocol.Protocol):
 
 
 class RLFactory(protocol.ClientFactory):
-    def __init__(self, clientname, gpu):
+    def __init__(self, clientname, gpu, idn):
         self.protocol = RLClient
         self.clientname = clientname
         self.gpu = gpu
+        self.index = idn
 
     def clientConnectionFailed(self, connector, reason):
         print("Connection failed - goodbye!")
@@ -77,8 +72,8 @@ class RLFactory(protocol.ClientFactory):
         reactor.stop()
 
 
-def start_reactor(hostname, clientname, gpu):
-    f = RLFactory(clientname, gpu)
+def start_reactor(hostname, clientname, gpu, index):
+    f = RLFactory(clientname, gpu, index)
     reactor.connectTCP(hostname, 8000, f)
     reactor.run()
 
@@ -86,14 +81,12 @@ def start_reactor(hostname, clientname, gpu):
 # this connects the protocol to a server running on port 8000
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--index', type=str, default='xxx')
-    #parser.add_argument('gpu', type=int)
+    parser.add_argument('--idn', type=str, default='xxx')
+    parser.add_argument('--gpus', type=str, default='0')
     args = parser.parse_args()
-    hostname = "hpcgpu8.ai.zzzc.qihoo.net"
-    gpu = 0
-    print(args.index)
-    client_name = socket.gethostname() + '_' + str(gpu)
-    start_reactor(hostname, client_name, gpu)
+    hostname = "deep26"
+    client_name = socket.gethostname() + '_' + args.idn
+    start_reactor(hostname, client_name, args.gpus, args.idn)
 
 
 # this only runs if the module was *not* imported
