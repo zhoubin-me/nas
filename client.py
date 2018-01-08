@@ -30,14 +30,13 @@ class RLClient(protocol.Protocol):
             model = NASModel(net)
             sym = model.build_cifar_network()
             log_file = 'logs/log_%s.log' % out['net_num']
-            #train_acc, test_acc, time_cost = run_mxnet_return_accuracy(log_file, model.lr, self.factory.gpu, sym)
-            #acc_list  = list(test_acc.values())
-            #accuracy = sum(acc_list) / (len(acc_list) + 1)
+            train_acc, test_acc, time_cost = run_mxnet_return_accuracy(log_file, model.lr, self.factory.gpu, sym)
+            acc_list  = list(test_acc.values())
+            accuracy = sum(acc_list) / (len(acc_list) + 1)
             print('----------------------')
-            #print(train_acc)
-            #print(test_acc)
+            print(train_acc)
+            print(test_acc)
             print(net)
-            accuracy = 0.5
             msg = q_protocol.construct_net_trained_message(
                 self.factory.clientname,
                 out['net_string'],
@@ -84,7 +83,7 @@ def main():
     parser.add_argument('--idn', type=str, default='xxx')
     parser.add_argument('--gpus', type=str, default='0')
     args = parser.parse_args()
-    hostname = "deep26"
+    hostname = "hpcgpu2.ai.zzzc.qihoo.net"
     client_name = socket.gethostname() + '_' + args.idn
     start_reactor(hostname, client_name, args.gpus, args.idn)
 

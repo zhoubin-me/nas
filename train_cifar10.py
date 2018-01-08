@@ -20,6 +20,7 @@
 
 import os
 os.environ['MXNET_EXEC_INPLACE_GRAD_SUM_CAP']="20"
+os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT']="0"
 import argparse
 import logging
 from common import find_mxnet, data, fit
@@ -63,9 +64,9 @@ def train_cifar10(sym, gpu, lr, log_file):
         # train
         batch_size     = 128,
         num_epochs     = 20,
-        lr             = .05,
-        lr_factor      = 0.2,
-        lr_step_epochs = '50, 100',
+        lr             = lr,
+        lr_factor      = 0.1,
+        lr_step_epochs = '5,10,15',
         optimizer      = 'sgd',
         gpus           = str(gpu)
     )

@@ -122,7 +122,19 @@ def fit(args, network, data_loader, **kwargs):
 
     # logging
     head = '%(asctime)-15s Node[' + str(kv.rank) + '] %(message)s'
-    logging.basicConfig(level=logging.DEBUG, format=head, filename=args.logfile)
+    log = logging.getLogger('')
+    log.setLevel(logging.DEBUG)
+    format = logging.Formatter(head)
+
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setFormatter(format)
+    log.addHandler(ch)
+
+    fh = logging.FileHandler(args.logfile)
+    fh.setFormatter(format)
+    log.addHandler(fh)
+
+    #logging.basicConfig(level=logging.DEBUG, format=head, filename=args.logfile)
     logging.info('start with arguments %s', args)
 
     # data iterators

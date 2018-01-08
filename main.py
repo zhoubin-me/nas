@@ -35,7 +35,8 @@ class RLServer(protocol.ServerFactory):
         self.net_sent_count = 0
         self.net_trained_dict = OrderedDict()
         self.net_trained_count = 0
-        self.max_step = 35
+        self.max_step = 30000
+        self.minibatch = 20
         print('Running NAS Server')
 
 
@@ -62,16 +63,14 @@ class RLServer(protocol.ServerFactory):
 
         print('{}Updated {}th net_code:\n {} \n {} {}'.format(bcolors.OKGREEN, self.net_trained_count,
                                                               net_code, accuracy, bcolors.ENDC))
-        if self.net_trained_count > 0 and self.net_trained_count % 32 == 0:
-            accs = [v['acc'] for k, v in self.net_trained_dict.items()][-32:]
-            codes = [v['code'] for k, v in self.net_trained_dict.items()][-32:]
+        if self.net_trained_count > 0 and self.net_trained_count % self.minibatch == 0:
+            accs = [v['acc'] for k, v in self.net_trained_dict.items()][-self.minibatch:]
+            codes = [v['code'] for k, v in self.net_trained_dict.items()][-self.minibatch:]
             codes = np.stack(codes, axis=1)
-            print(codes)
-            print(accs)
+            print(np.max(accs), np.mean(accs), np.std(accs))
             self.policy.update_batch(codes, accs)
             print('{}Updated model:\n {} {}'.format(bcolors.BOLD, self.net_trained_count, bcolors.ENDC))
 
-        if self.net_trained_count % 100 == 0:
             with open('logs/step_%05d.pkl' % self.net_trained_count, 'wb') as f:
                 pickle.dump(self.net_trained_dict, f)
             torch.save(self.policy.state_dict(), 'logs/save_%05d.th' % self.net_trained_count)

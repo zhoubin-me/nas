@@ -4,12 +4,13 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.distributions import Categorical
 import torch.optim as optim
+import pdb
 
 
 class NASPolicy(nn.Module):
     def __init__(self):
         super(NASPolicy, self).__init__()
-        self.batch_size = 32
+        self.batch_size = 20
         self.cell_size = 128
         self.actions_explained = ('start',) + ('left', 'right', 'first', 'second', 'third', 'forth') + \
                                  ('left', 'right', 'first', 'second', 'third', 'forth') + \
@@ -70,6 +71,7 @@ class NASPolicy(nn.Module):
         for reward in rewards:
             self.reward_bias = self.gamma * self.reward_bias + (1 - self.gamma) * reward
 
+
         self.optimizer.zero_grad()
         loss = torch.cat(pg_loss).mean()
         loss.backward()
@@ -109,6 +111,8 @@ def main():
         nets.append(model.inference_once())
         accs.append(np.random.randn())
     nets = np.stack(nets, axis=1)
+    print(nets)
+    print(accs)
 
     for _ in range(10000):
         loss = model.update_batch(nets, accs)
