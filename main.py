@@ -1,5 +1,6 @@
+import os,sys
+sys.path.append(os.getcwd())
 from policy import NASPolicy
-
 from collections import OrderedDict
 import socket
 import pickle
@@ -134,6 +135,8 @@ class RLConnection(protocol.Protocol):
 
 
 def main():
+    import socket
+    print(socket.gethostname())
 
     factory = RLServer()
     reactor.listenTCP(8000, factory)

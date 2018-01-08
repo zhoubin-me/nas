@@ -19,6 +19,7 @@
 
 
 import os
+os.environ['MXNET_EXEC_INPLACE_GRAD_SUM_CAP']="20"
 import argparse
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -26,7 +27,6 @@ from common import find_mxnet, data, fit
 from common.util import download_file
 
 import sys
-sys.path.append('/home/i-chenyunpeng/zhoubin/incubator-mxnet/python')
 import mxnet as mx
 
 def download_cifar10():
@@ -37,14 +37,16 @@ def download_cifar10():
     download_file('http://data.mxnet.io/data/cifar10/cifar10_train.rec', fnames[0])
     return fnames
 
-if __name__ == '__main__':
+def train_cifar10(sym, gpu, epoch, lr):
     # download data
     (train_fname, val_fname) = download_cifar10()
 
     # parse args
     parser = argparse.ArgumentParser(description="train cifar10",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--fsym', type=str, help='location of symbol json file')
+    #parser.add_argument('--fsym', type=str, help='location of symbol json file')
+    parser.add_argument('--index', type=str, help='location of symbol json file')
+    #sym = mx.sym.load(args.fsym)
     fit.add_fit_args(parser)
     data.add_data_args(parser)
     data.add_data_aug_args(parser)
@@ -62,7 +64,7 @@ if __name__ == '__main__':
         pad_size       = 4,
         # train
         batch_size     = 128,
-        num_epochs     = 300,
+        num_epochs     = epoch,
         lr             = .05,
         lr_factor      = 0.2,
         lr_step_epochs = '50, 100',
@@ -70,8 +72,9 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    # load network
-    sym = mx.sym.load(args.fsym)
 
     # train
     fit.fit(args, sym, data.get_rec_iter)
+
+if __name__ == "__main__":
+    train_cifar10(0, 0)

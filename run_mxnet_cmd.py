@@ -1,8 +1,9 @@
 import os
 import re
 import sys
-
+sys.path.append(os.getcwd())
 from collections import OrderedDict
+from train_cifar10 import train_cifar10
 
 def check_out_of_memory(log_file):
     check_str = "Check failed: error == cudaSuccess"
@@ -73,13 +74,9 @@ def parse_mxnet_log_file(log_file):
 
 
 # Run caffe command line and return accuracies.
-def run_mxnet_return_accuracy(symbol_path, log_file, model_dir, lr, gpu):
+def run_mxnet_return_accuracy(symbol_path, log_file, model_dir, lr, gpu, sym):
     save_prefix = model_dir + '/mxsave'
-    run_cmd = 'export MXNET_EXEC_INPLACE_GRAD_SUM_CAP=20;python train_cifar10.py --gpu %d --fsym %s --num-epochs %d --lr %f ' \
-              '--model-prefix %s >> %s 2>&1' % (gpu, symbol_path, 12, lr, save_prefix, log_file)
-    print("Running [%s]" % run_cmd)
-    os.system(run_cmd)
-
+    train_cifar10(sym, gpu, 12, lr)
     # Get the accuracy values.
     if check_out_of_memory(log_file):
         return None, None

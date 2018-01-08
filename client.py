@@ -1,3 +1,5 @@
+import os,sys
+sys.path.append(os.getcwd())
 from twisted.internet import reactor, protocol
 import q_protocol
 import socket
@@ -35,7 +37,7 @@ class RLClient(protocol.Protocol):
             sym.save(sym_file)
 
             train_acc, test_acc, time_cost = run_mxnet_return_accuracy(sym_file, log_file,
-                                                                       model_dir, model.lr, self.factory.gpu)
+                                                                       model_dir, model.lr, self.factory.gpu, sym)
             print(train_acc)
             print(test_acc)
             acc_list  = list(test_acc.values())
@@ -84,12 +86,14 @@ def start_reactor(hostname, clientname, gpu):
 # this connects the protocol to a server running on port 8000
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('hostname', type=str)
-    parser.add_argument('gpu', type=int)
+    parser.add_argument('--index', type=str, default='xxx')
+    #parser.add_argument('gpu', type=int)
     args = parser.parse_args()
-
-    client_name = socket.gethostname() + '_' + str(args.gpu)
-    start_reactor(args.hostname, client_name, args.gpu)
+    hostname = "hpcgpu8.ai.zzzc.qihoo.net"
+    gpu = 0
+    print(args.index)
+    client_name = socket.gethostname() + '_' + str(gpu)
+    start_reactor(hostname, client_name, gpu)
 
 
 # this only runs if the module was *not* imported
