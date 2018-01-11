@@ -19,6 +19,7 @@ def SepConv2d(net, channels, dw_kernel, dw_stride, dw_pad):
 
 
 def Conv2d(net, filters, kernel, stride, pad, num_group=1):
+    net = mx.sym.BatchNorm(data=net)
     net = mx.sym.Activation(data=net, act_type='relu')
     net = mx.sym.Convolution(
         data=net,
@@ -27,18 +28,17 @@ def Conv2d(net, filters, kernel, stride, pad, num_group=1):
         stride=(stride, stride),
         pad=(pad, pad),
         num_group=num_group)
-    net = mx.sym.BatchNorm(data=net)
     return net
 
 
 def SepConvBlock(net, channels, kernel_size, stride, padding):
+    net = mx.sym.BatchNorm(data=net)
     net = mx.sym.Activation(data=net, act_type='relu')
     net = SepConv2d(net, channels, kernel_size, stride, padding)
-    net = mx.sym.BatchNorm(data=net)
 
+    net = mx.sym.BatchNorm(data=net)
     net = mx.sym.Activation(data=net, act_type='relu')
     net = SepConv2d(net, channels, kernel_size, stride, padding)
-    net = mx.sym.BatchNorm(data=net)
 
     return net
 

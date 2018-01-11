@@ -19,7 +19,6 @@ sys.path.append('/home/i-chenyunpeng/zhoubin/incubator-mxnet/python')
 
 
 import mxnet as mx
-import logging
 import os
 import time
 
@@ -122,6 +121,7 @@ def fit(args, network, data_loader, **kwargs):
 
     # logging
     head = '%(asctime)-15s Node[' + str(kv.rank) + '] %(message)s'
+    import logging
     log = logging.getLogger('')
     log.setLevel(logging.DEBUG)
     format = logging.Formatter(head)
@@ -206,7 +206,7 @@ def fit(args, network, data_loader, **kwargs):
     # initializer   = mx.init.Xavier(factor_type="in", magnitude=2.34),
 
     # evaluation metrices
-    eval_metrics = ['accuracy']
+    eval_metrics = ['accuracy', 'loss']
     if args.top_k > 0:
         eval_metrics.append(mx.metric.create('top_k_accuracy', top_k=args.top_k))
 
@@ -232,3 +232,4 @@ def fit(args, network, data_loader, **kwargs):
         epoch_end_callback = checkpoint,
         allow_missing      = True,
         monitor            = monitor)
+    return model

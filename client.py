@@ -31,12 +31,13 @@ class RLClient(protocol.Protocol):
             sym = model.build_cifar_network()
             log_file = 'logs/log_%s.log' % out['net_num']
             train_acc, test_acc, time_cost = run_mxnet_return_accuracy(log_file, model.lr, self.factory.gpu, sym)
-            acc_list  = list(test_acc.values())
-            accuracy = sum(acc_list) / (len(acc_list) + 1)
+            acc_list = list(test_acc.values())
+            accuracy = max(acc_list)
             print('----------------------')
             print(train_acc)
             print(test_acc)
             print(net)
+            print(out['net_num'], accuracy)
             msg = q_protocol.construct_net_trained_message(
                 self.factory.clientname,
                 out['net_string'],

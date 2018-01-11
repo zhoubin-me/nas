@@ -13,7 +13,7 @@ do
       --worker-gpus 1 \
       --worker-memory 4024 \
       --hbox-cmd "python client.py --idn ${idn}" \
-      --appName "nas_client" \
+      --appName "nas_client_${idn}" \
       --output "/user/i-chenyunpeng/nas/client${idn}_logs#logs" \
       --priority "VERY_HIGH" \
       --cacheFile "/user/i-chenyunpeng/nas/mxnet#mxnet" &
