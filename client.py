@@ -6,6 +6,7 @@ import socket
 import argparse
 import time
 import os
+import numpy as np
 
 from run_mxnet_cmd import run_mxnet_return_accuracy
 from net2sym import NASModel
@@ -38,6 +39,7 @@ class RLClient(protocol.Protocol):
             print(test_acc)
             print(net)
             print(accuracy)
+            #accuracy = np.random.randn()
             msg = q_protocol.construct_net_trained_message(
                 self.factory.clientname,
                 out['net_string'],

@@ -1,10 +1,10 @@
 
-for idn in `seq 1 $1`
+for idn in `seq $1 $2`
 do
     hadoop fs -rm -r /user/i-chenyunpeng/nas/client${idn}_logs &
 done
 
-for idn in `seq 1 $1`
+for idn in `seq $1 $2`
 do
     hbox-submit \
       --app-type "mxnet" \

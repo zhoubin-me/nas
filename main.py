@@ -71,10 +71,10 @@ class RLServer(protocol.ServerFactory):
             codes = [v['code'] for k, v in self.net_trained_dict.items()][-self.minibatch:]
             codes = np.stack(codes, axis=1)
             loss = self.policy.update_batch(codes, accs)
-            #print("{}Max Acc {:.5f} | Mean Acc {:.5f} | Std Acc {:.5f} | Acc Bias {:.5f} | Loss {:.5f}{}".format(
-            #    bcolors.BOLD, np.max(accs), np.mean(accs), np.std(accs), self.policy.reward_bias, loss, bcolorrs.ENDC))
+            print("{}Max Acc {:.5f} | Mean Acc {:.5f} | Std Acc {:.5f} | Acc Bias {:.5f} | Loss {:.5f}{}".format(
+                bcolors.BOLD, np.max(accs), np.mean(accs), np.std(accs), self.policy.reward_bias, loss, bcolors.ENDC))
 
-            print('{}Updated model:\n {} {}'.format(bcolors.BOLD, self.net_trained_count, bcolors.ENDC))
+            print('{}Updated model: {} {}'.format(bcolors.BOLD, self.net_trained_count, bcolors.ENDC))
 
             with open('{}/step_{:05d}.pkl'.format(self.log_dir, self.net_trained_count), 'wb') as f:
                 pickle.dump(self.net_trained_dict, f)
