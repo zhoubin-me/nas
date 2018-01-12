@@ -37,7 +37,7 @@ class RLClient(protocol.Protocol):
             print(train_acc)
             print(test_acc)
             print(net)
-            print(out['net_num'], accuracy)
+            print(accuracy)
             msg = q_protocol.construct_net_trained_message(
                 self.factory.clientname,
                 out['net_string'],

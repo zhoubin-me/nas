@@ -63,7 +63,7 @@ def train_cifar10(sym, gpu, lr, log_file):
         pad_size       = 4,
         # train
         batch_size     = 128,
-        num_epochs     = 30,
+        num_epochs     = 20,
         lr             = lr,
         lr_factor      = 0.1,
         lr_step_epochs = '50',

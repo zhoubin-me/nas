@@ -107,11 +107,11 @@ def main():
     model = NASPolicy()
     nets = []
     accs = []
-    for _ in range(32):
+    for _ in range(20):
         nets.append(model.inference_once())
         accs.append(np.random.randn())
     nets = np.stack(nets, axis=1)
-    print(nets)
+    print(nets, np.array(nets).shape)
     print(accs)
 
     for _ in range(10000):

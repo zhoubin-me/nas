@@ -206,7 +206,7 @@ def fit(args, network, data_loader, **kwargs):
     # initializer   = mx.init.Xavier(factor_type="in", magnitude=2.34),
 
     # evaluation metrices
-    eval_metrics = ['accuracy', 'loss']
+    eval_metrics = ['accuracy', 'ce']
     if args.top_k > 0:
         eval_metrics.append(mx.metric.create('top_k_accuracy', top_k=args.top_k))
 

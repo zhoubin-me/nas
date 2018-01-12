@@ -38,7 +38,8 @@ class RLServer(protocol.ServerFactory):
         self.net_trained_count = 0
         self.max_step = 30000
         self.minibatch = 20
-        self.log_dir = "logs_" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.log_dir = "logs_" + datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+        os.mkdir(self.log_dir)
         print('Running NAS Server')
 
 
@@ -70,8 +71,8 @@ class RLServer(protocol.ServerFactory):
             codes = [v['code'] for k, v in self.net_trained_dict.items()][-self.minibatch:]
             codes = np.stack(codes, axis=1)
             loss = self.policy.update_batch(codes, accs)
-            print("{}Max Acc {:.5f} | Mean Acc {:.5f} | Std Acc {:.5f} | Acc Bias {:.5f} | Loss {:.5f}{}".format(
-                bcolors.BOLD, np.max(accs), np.mean(accs), np.std(accs), self.policy.reward_bias, loss, bcolorrs.ENDC))
+            #print("{}Max Acc {:.5f} | Mean Acc {:.5f} | Std Acc {:.5f} | Acc Bias {:.5f} | Loss {:.5f}{}".format(
+            #    bcolors.BOLD, np.max(accs), np.mean(accs), np.std(accs), self.policy.reward_bias, loss, bcolorrs.ENDC))
 
             print('{}Updated model:\n {} {}'.format(bcolors.BOLD, self.net_trained_count, bcolors.ENDC))
 
